@@ -1,0 +1,42 @@
+<!-- ============================================================
+     PRD 查看器 DOM 片段
+     放置位置：原型页面 </body> 闭合标签之前
+     依赖：viewer.css 的样式 + viewer.js 的逻辑
+     图标使用 Unicode 符号；原型若已引入 Font Awesome，
+     可将 📖/⬇/⬆/✕ 替换为 <i class="fas fa-book-open"> 等
+     ============================================================ -->
+
+<!-- PRD 查看器：浮动入口（可任意拖动、松手吸附最近左右边缘、位置本地记忆） + 右侧抽屉
+     （无遮罩，原型与 PRD 可同时查看；左缘 #prdResize 手柄可拖动调宽、双击恢复默认；
+      顶部 #prdModeBtn 在「演示版 / 开发版」间切换，顶部 #prdSearch 按标题/正文关键词检索） -->
+<button type="button" class="prd-fab" id="prdFab" title="查看产品需求文档（PRD）· 可拖动，松手自动吸边"><span class="prd-fab-ico">📖</span><span>PRD</span></button>
+<aside class="prd-drawer" id="prdDrawer" aria-label="PRD 查看器">
+    <div class="prd-resize" id="prdResize" title="拖动调节抽屉宽度（双击恢复默认）"></div>
+    <!-- 拖宽时浮在手柄旁显示当前像素宽度 -->
+    <div class="prd-width-tip" id="prdWidthTip" aria-hidden="true"></div>
+    <div class="prd-drawer-head">
+        <!-- 修改点：prd-drawer-sub 改为「项目名 · 版本」 -->
+        <div class="prd-drawer-title"><span class="prd-title-ico">📖</span> 产品需求文档（PRD）<span class="prd-drawer-sub">项目名 · v1.0</span></div>
+        <!-- 模式切换：演示版 = 抽屉浮于页面之上（收起后不影响页面）；开发版 = 抽屉停靠、页面让位并排。
+             纯演示交付可把 viewer.js 的 PRD_MODE_SWITCH 设为 false 隐藏本按钮 -->
+        <button type="button" class="prd-mode-btn" id="prdModeBtn" data-mode="demo"
+            title="切换查看方式：演示版（抽屉浮于页面之上）/ 开发版（页面让位，与抽屉并排）">演示版</button>
+        <span class="prd-head-btn" id="prdExport" title="导出 PRD 为 Markdown 文档（含全部本地修改）">⬇</span>
+        <span class="prd-head-btn" id="prdImport" title="导入 PRD Markdown 文档（按「## 编号」覆盖本地修改）">⬆</span>
+        <span class="prd-drawer-close" id="prdClose" title="关闭">✕</span>
+    </div>
+    <!-- 搜索：检索章节标题与正文（含本地修改），结果浮层悬于内容之上，点击定位并高亮命中 -->
+    <div class="prd-search-wrap">
+        <div class="prd-search">
+            <span class="prd-search-ico">🔍</span>
+            <input type="search" id="prdSearch" class="prd-search-input" aria-label="搜索 PRD 标题或正文关键词"
+                placeholder="搜索标题或正文关键词（空格分词；↑↓ 切换，回车定位，Esc 收起）" autocomplete="off" spellcheck="false">
+            <span class="prd-search-clear" id="prdSearchClear" title="清空搜索">✕</span>
+        </div>
+        <div class="prd-search-res" id="prdSearchRes" hidden></div>
+    </div>
+    <div class="prd-drawer-body">
+        <nav class="prd-toc" id="prdToc"></nav>
+        <div class="prd-content" id="prdContent"></div>
+    </div>
+</aside>
