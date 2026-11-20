@@ -1,0 +1,1252 @@
+/* ============================================================
+   PRD 查看器样式：悬浮编号徽章 + 浮动入口 + 右侧抽屉（可拖宽）+ 编辑态
+   接入：多文件原型追加到样式表末尾；单文件原型放 <style> 末尾
+   定制：#4f6ef7 为示例主色（出现多处），全部替换为原型主色
+   ============================================================ */
+
+/* ===== 悬浮编号徽章（绝对定位于模块容器角部，不占文档流、不改原型布局） =====
+   用法：徽章作为模块容器的子元素（通常放容器内第一个子节点），容器需
+   position: relative（已有定位的容器无需改动）。点击徽章展开 PRD 抽屉并定位；
+   按住可拖动调整位置，松手固定（位置本地记忆），右键复位默认角部。 */
+.prd-badge {
+    position: absolute;
+    top: -10px;
+    left: 10px;
+    z-index: 5;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1px 7px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .3px;
+    color: #4f6ef7;
+    background: #fff;
+    border: 1px solid rgba(79, 110, 247, .35);
+    border-radius: 6px;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, .12);
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+    white-space: nowrap;
+    touch-action: none;
+    /* 只过渡视觉属性：把 left/top 排除在过渡之外，否则拖动会迟滞、松手瞬间读到过渡中的旧坐标 */
+    transition: background-color .15s, color .15s, border-color .15s, box-shadow .15s;
+}
+
+.prd-badge:hover {
+    background: #4f6ef7;
+    color: #fff;
+    border-color: #4f6ef7;
+    box-shadow: 0 2px 8px rgba(79, 110, 247, .35);
+    cursor: grab;
+}
+
+/* 拖动中（viewer.js 的徽章拖动块维护）：光标抓取、去掉过渡（否则 left/top 跟随有迟滞）、
+   提高层级并加深投影，让拖着的徽章脱离相邻元素。松手后由脚本写内联 left/top 固定位置。 */
+.prd-badge.prd-badge-drag {
+    cursor: grabbing;
+    transition: none;
+    z-index: 60;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, .28);
+}
+
+/* 已固定位置的徽章（拖动过、有本地记忆）：右上角缀一个小圆点，便于识别哪些被手工挪动过 */
+.prd-badge.prd-badge-pinned::after {
+    content: '';
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #4f6ef7;
+    box-shadow: 0 0 0 1.5px #fff;
+}
+
+.prd-badge.prd-badge-off.prd-badge-pinned::after {
+    background: #b9bfc9;
+}
+
+/* 右悬浮：模块左上角有占据内容（色块/图标等）时改挂右上角 */
+.prd-badge-r {
+    left: auto;
+    right: 10px;
+}
+
+/* 容器 overflow: hidden 会裁剪越界徽章时，改为完全悬浮于容器内部左上角 */
+.prd-badge-in {
+    top: 10px;
+}
+
+/* ----- 徽章与本地 PRD 目录的同步态（viewer.js 的 prdSyncBadges 维护） -----
+   出现两种情况时给徽章换外观，位置与文字不动：
+   .prd-badge-off    目录里已删除该章节 → 虚线灰显 + 删除线，点击提示恢复路径
+   .prd-badge-orphan 源码有徽章但 PRD 章节定义中已无此 id → 淡黄虚线警示
+   两者都在每次渲染时全量重算，章节回归后自动摘除，无需手工清理。 */
+.prd-badge.prd-badge-off {
+    background: #f4f5f7;
+    border-color: #d3d7de;
+    border-style: dashed;
+    color: #9ba2ad;
+    text-decoration: line-through;
+    box-shadow: none;
+    opacity: .8;
+}
+
+.prd-badge.prd-badge-off:hover {
+    background: #eceef1;
+    border-color: #b9bfc9;
+    color: #6f7783;
+    box-shadow: none;
+}
+
+.prd-badge.prd-badge-orphan {
+    background: #fffaeb;
+    border-color: #f0cf94;
+    border-style: dashed;
+    color: #a2680a;
+    box-shadow: none;
+}
+
+.prd-badge.prd-badge-orphan:hover {
+    background: #fdf0d3;
+    border-color: #d9a441;
+    color: #8a5607;
+    box-shadow: none;
+}
+
+/* ===== 浮动入口（可任意拖动、松手吸附最近左右边缘、位置本地记忆；JS 接管后改用 left/top 定位） ===== */
+.prd-fab {
+    position: fixed;
+    right: 22px;
+    bottom: 22px;
+    z-index: 2100;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #4f6ef7, #6a5cf0);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    box-shadow: 0 6px 20px rgba(79, 110, 247, .4);
+    transition: transform .15s, box-shadow .15s, opacity .3s;
+}
+
+.prd-fab:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 26px rgba(79, 110, 247, .5);
+}
+
+/* 拖动中：禁用 hover 位移与过渡，按钮跟随指针 */
+.prd-fab.prd-fab-drag,
+.prd-fab.prd-fab-drag:hover {
+    cursor: grabbing;
+    transform: none;
+    transition: box-shadow .15s;
+}
+
+/* 闲置淡出（viewer.js 的 PRD_FAB_IDLE_FADE 控制）：演示时按钮不抢镜头，
+   鼠标移入/键盘聚焦即恢复；只降不透明度与阴影，位置与可点击性不变 */
+.prd-fab.prd-fab-dim {
+    opacity: .34;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, .12);
+    transform: none;
+}
+
+.prd-fab.prd-fab-dim:hover,
+.prd-fab.prd-fab-dim:focus-visible {
+    opacity: 1;
+    box-shadow: 0 10px 26px rgba(79, 110, 247, .5);
+}
+
+/* 抽屉展开期间收起浮动入口：入口只负责「打开」，关闭统一用抽屉头部 ✕ 或 Esc，
+   两种形态一致；避免入口压在抽屉内容上（隐藏后不可点、不进 Tab 顺序） */
+html.prd-drawer-open .prd-fab {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: scale(.92);
+    transition: opacity .18s, visibility 0s .18s;
+}
+
+.prd-fab .prd-fab-ico {
+    font-size: 14px;
+    line-height: 1;
+}
+
+/* ===== 右侧抽屉（无全屏遮罩，原型与 PRD 可同时查看操作） =====
+   两种形态共用同一抽屉，差异只在「抽屉与页面的关系」（见下方「视图模式」）：
+   演示版 = 悬浮面板（左缘圆角 + 外阴影），浮在页面之上，收起后页面完全恢复；
+   开发版 = 停靠栏（无阴影 + 左缘实线边框），页面让出同宽空间并排显示。 */
+.prd-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    z-index: 2000;
+    width: 640px;
+    max-width: 94vw;
+    height: 100vh;
+    background: #fff;
+    box-shadow: -14px 0 44px rgba(15, 23, 42, .16);
+    transform: translateX(102%);
+    transition: transform .28s cubic-bezier(.4, 0, .2, 1), box-shadow .28s, border-radius .28s;
+    display: flex;
+    flex-direction: column;
+    border-radius: 14px 0 0 14px;
+}
+
+.prd-drawer.open {
+    transform: translateX(0);
+}
+
+/* 开发版：抽屉停靠，去掉悬浮观感，左缘用 1px 实线把页面与 PRD 分开 */
+.prd-drawer.prd-dev {
+    border-radius: 0;
+    border-left: 1px solid #e5e9f2;
+    box-shadow: -6px 0 18px rgba(15, 23, 42, .06);
+}
+
+.prd-drawer.prd-dev .prd-drawer-head {
+    border-top-left-radius: 0;
+}
+
+.prd-drawer.prd-dev .prd-toc {
+    border-bottom-left-radius: 0;
+}
+
+/* ===== 视图模式：开发版页面让位（与抽屉并排） =====
+   viewer.js 在开发版展开抽屉时给 body 写内联 margin-right = 抽屉宽（收起时还原原值），
+   内容区随之收窄，因此不会被抽屉盖住，两边可同时阅读。
+   用 margin 而不是 width：不覆盖原型 body 自身的宽度与居中规则，也不会因 body 自带间距而溢出。
+   --prd-dock-w 同步写给固定元素（.prd-dock-shrink）与自定义样式引用；
+   拖动抽屉左缘改宽时 body 带 .prd-resizing，此时关闭过渡避免掉帧。 */
+html.prd-dock body {
+    transition: margin-right .28s cubic-bezier(.4, 0, .2, 1);
+}
+
+html.prd-dock body.prd-resizing {
+    transition: none;
+}
+
+/* 开发版：整宽固定定位元素（顶栏 / 右侧浮层 / 右下角浮球）跟随让位。
+   原型里这些元素不受 body 宽度影响，需要手动给它们加 .prd-dock-shrink；
+   仅对以 right 定位的元素有效（同时写了 left/right 的，请改用 right: var(--prd-dock-w)）。 */
+html.prd-dock .prd-dock-shrink {
+    right: var(--prd-dock-w, 0px);
+    transition: right .28s cubic-bezier(.4, 0, .2, 1);
+}
+
+/* ===== 左缘拖拽手柄（拖动调节抽屉宽度，范围见 viewer.js 配置区） ===== */
+.prd-resize {
+    position: absolute;
+    top: 0;
+    left: -7px;
+    width: 16px;
+    height: 100%;
+    z-index: 3;
+    cursor: col-resize;
+    touch-action: none;
+    user-select: none;
+}
+
+.prd-resize::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 6px;
+    width: 4px;
+    height: 100%;
+    background: transparent;
+    border-radius: 2px;
+    transition: background .15s;
+}
+
+.prd-resize:hover::before,
+.prd-resize:active::before {
+    background: #4f6ef7;
+}
+
+/* 常驻握把：抽屉边缘中段的短竖条，说明「这里可以拖」；hover 变主色 */
+.prd-resize::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 6px;
+    width: 4px;
+    height: 34px;
+    margin-top: -17px;
+    border-radius: 3px;
+    background: rgba(15, 23, 42, .13);
+    transition: background .15s, height .15s;
+}
+
+.prd-resize:hover::after,
+.prd-resize:active::after {
+    background: #4f6ef7;
+    height: 56px;
+    margin-top: -28px;
+}
+
+/* 拖宽时的像素宽度气泡（viewer.js 在拖动中显示） */
+.prd-width-tip {
+    position: absolute;
+    top: 12px;
+    left: -62px;
+    z-index: 4;
+    min-width: 48px;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #fff;
+    background: rgba(15, 23, 42, .84);
+    border-radius: 6px;
+    text-align: center;
+    opacity: 0;
+    transform: translateY(-2px);
+    transition: opacity .15s, transform .15s;
+    pointer-events: none;
+}
+
+.prd-width-tip.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* 拖动调宽期间：全局 col-resize 光标 + 禁选文字，避免拖拽抖动 */
+body.prd-resizing,
+body.prd-resizing * {
+    cursor: col-resize !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+}
+
+.prd-drawer-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    padding: 11px 14px 11px 18px;
+    border-bottom: 1px solid #e5e9f2;
+    background: #f8faff;
+    border-top-left-radius: 14px;
+}
+
+/* 抽屉较窄时标题不顶掉右侧按钮：标题弹性收缩，副标题省略号 */
+.prd-drawer-title {
+    flex: 1;
+    min-width: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+/* 模式切换胶囊：圆点表示当前形态（演示=灰蓝，开发=绿） */
+.prd-mode-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+    height: 24px;
+    padding: 0 10px;
+    border: 1px solid #dbe3f5;
+    border-radius: 999px;
+    background: #fff;
+    color: #4f6ef7;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: border-color .15s, background .15s, color .15s;
+}
+
+.prd-mode-btn::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #94a3b8;
+}
+
+.prd-mode-btn:hover {
+    background: #eef2ff;
+    border-color: #c7d2fe;
+}
+
+.prd-mode-btn[data-mode="dev"] {
+    color: #15803d;
+    border-color: #c7e9d2;
+    background: #f2fdf6;
+}
+
+.prd-mode-btn[data-mode="dev"]::before {
+    background: #22c55e;
+}
+
+.prd-mode-btn[data-mode="dev"]:hover {
+    background: #e7faee;
+    border-color: #a7dfbb;
+}
+
+.prd-drawer-title .prd-title-ico {
+    flex-shrink: 0;
+    color: #4f6ef7;
+}
+
+.prd-drawer-sub {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+    font-weight: 500;
+    color: #94a3b8;
+    margin-left: 4px;
+}
+
+.prd-drawer-close {
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    line-height: 26px;
+    text-align: center;
+    cursor: pointer;
+    color: #64748b;
+    font-size: 15px;
+    border-radius: 7px;
+    transition: background .15s, color .15s;
+}
+
+.prd-drawer-close:hover {
+    background: #e8edf8;
+    color: #1e293b;
+}
+
+.prd-drawer-body {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+}
+
+/* ----- 左：目录 ----- */
+.prd-toc {
+    position: relative;
+    width: 216px;
+    flex-shrink: 0;
+    overflow-y: auto;
+    border-right: 1px solid #eef1f7;
+    padding: 10px 8px 24px;
+    background: #fbfcff;
+    border-bottom-left-radius: 14px; /* 配合演示版抽屉左缘圆角，目录底色不外溢 */
+}
+
+/* 组标题吸顶：目录很长时始终知道当前组 */
+.prd-toc-group {
+    position: sticky;
+    top: -10px;
+    z-index: 2;
+    font-size: 12px;
+    font-weight: 700;
+    color: #64748b;
+    padding: 12px 10px 6px;
+    background: #fbfcff;
+}
+
+.prd-toc-item {
+    display: flex;
+    gap: 7px;
+    align-items: baseline;
+    padding: 6px 10px;
+    border-radius: 7px;
+    font-size: 12px;
+    color: #334155;
+    cursor: pointer;
+    line-height: 1.45;
+}
+
+.prd-toc-item:hover {
+    background: #eef2ff;
+}
+
+.prd-toc-item.active {
+    background: #4f6ef7;
+    color: #fff;
+}
+
+.prd-toc-item .toc-no {
+    font-weight: 700;
+    font-size: 11px;
+    color: #7c8ef8;
+    flex-shrink: 0;
+}
+
+.prd-toc-item.active .toc-no {
+    color: #dbe3ff;
+}
+
+/* ----- 右：内容 ----- */
+.prd-content {
+    flex: 1;
+    position: relative;
+    overflow-y: auto;
+    padding: 18px 22px 60px;
+    scroll-behavior: smooth;
+}
+
+/* 宽抽屉下限制正文行宽：宽屏阅读时不至于一行跑到 1000px 以上（表格随容器自适应） */
+.prd-content > * {
+    max-width: 900px;
+}
+
+.prd-sec {
+    margin-bottom: 26px;
+}
+
+.prd-sec-h {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1e293b;
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+    border-bottom: 2px solid #eef1f7;
+    display: flex;
+    align-items: baseline;
+    gap: 9px;
+}
+
+.prd-sec-h .sec-no {
+    color: #4f6ef7;
+    font-size: 13px;
+    flex-shrink: 0;
+}
+
+/* 定位到章节时的闪烁高亮 */
+.prd-sec.prd-flash .prd-sec-h {
+    animation: prdFlash 1.6s ease;
+    border-bottom-color: #4f6ef7;
+}
+
+@keyframes prdFlash {
+    0%, 60% { background: rgba(79, 110, 247, .14); }
+    100% { background: transparent; }
+}
+
+.prd-content p {
+    font-size: 12.5px;
+    line-height: 1.75;
+    color: #334155;
+    margin: 6px 0;
+}
+
+.prd-content ul,
+.prd-content ol {
+    margin: 6px 0 6px 18px;
+    padding: 0;
+}
+
+/* 嵌套列表：逐层缩进不叠加过深 */
+.prd-content li > ul,
+.prd-content li > ol {
+    margin: 2px 0 2px 16px;
+}
+
+.prd-content li {
+    font-size: 12.5px;
+    line-height: 1.75;
+    color: #334155;
+    margin: 3px 0;
+}
+
+.prd-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0;
+    font-size: 12px;
+}
+
+.prd-content th,
+.prd-content td {
+    border: 1px solid #e5e9f2;
+    padding: 5px 8px;
+    text-align: left;
+    line-height: 1.55;
+    vertical-align: top;
+}
+
+.prd-content th {
+    background: #f4f6fd;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.prd-content code {
+    background: #f1f5f9;
+    padding: 0 4px;
+    border-radius: 4px;
+    font-size: 11.5px;
+    color: #7c3aed;
+}
+
+/* Markdown 正文内小标题（# ~ ### → h4，#### 及以上 → h5） */
+.prd-content h4 {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 10px 0 4px;
+}
+
+.prd-content h5 {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #475569;
+    margin: 8px 0 3px;
+}
+
+/* Markdown 粗体：比正文加深一档，便于扫读 */
+.prd-content strong {
+    color: #0f172a;
+}
+
+/* Markdown 删除线 */
+.prd-content del {
+    color: #94a3b8;
+}
+
+/* Markdown 分隔线 */
+.prd-content hr {
+    border: none;
+    border-top: 1px dashed #e5e9f2;
+    margin: 12px 0;
+}
+
+/* Markdown ``` 代码块（保留缩进，超宽横向滚动） */
+.prd-content pre.prd-code {
+    margin: 8px 0;
+    padding: 8px 10px;
+    background: #f8fafc;
+    border: 1px solid #e5e9f2;
+    border-radius: 6px;
+    overflow-x: auto;
+}
+
+.prd-content pre.prd-code code {
+    background: none;
+    padding: 0;
+    color: #334155;
+    font-size: 11.5px;
+    line-height: 1.6;
+}
+
+/* 注意/限制提示块 */
+.prd-content .prd-note {
+    background: #fffbeb;
+    border-left: 3px solid #f59e0b;
+    padding: 7px 10px;
+    border-radius: 0 6px 6px 0;
+    font-size: 12px;
+    color: #78350f;
+    margin: 8px 0;
+}
+
+/* 隐藏功能标注 */
+.prd-content .prd-hidden-tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    color: #b45309;
+    background: #fef3c7;
+    border-radius: 4px;
+    padding: 0 5px;
+    margin-right: 4px;
+    vertical-align: 1px;
+}
+
+/* 演示数据标注 */
+.prd-content .prd-demo-tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    color: #1d4ed8;
+    background: #dbeafe;
+    border-radius: 4px;
+    padding: 0 5px;
+    margin-right: 4px;
+    vertical-align: 1px;
+}
+
+/* ===== 编辑功能 ===== */
+
+/* 头部导出/导入图标按钮 */
+.prd-head-btn {
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    line-height: 26px;
+    text-align: center;
+    font-size: 13px;
+    color: #94a3b8;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: color .15s, background .15s;
+    user-select: none;
+}
+
+.prd-head-btn:hover {
+    color: #4f6ef7;
+    background: #eef2ff;
+}
+
+/* 章节标题行：编辑按钮 + 已修改标记 */
+.prd-sec-h .prd-sec-edit {
+    margin-left: auto;
+    font-size: 12px;
+    color: #b0b9c9;
+    cursor: pointer;
+    padding: 3px 5px;
+    border-radius: 5px;
+    transition: all .15s;
+    flex-shrink: 0;
+    user-select: none;
+}
+
+.prd-sec-h .prd-sec-edit:hover {
+    color: #4f6ef7;
+    background: #eef2ff;
+}
+
+.prd-sec-h .prd-modified {
+    font-size: 10px;
+    font-weight: 700;
+    color: #b45309;
+    background: #fef3c7;
+    border-radius: 4px;
+    padding: 1px 6px;
+    flex-shrink: 0;
+}
+
+/* 目录项本地修改小圆点 */
+.prd-toc-item .toc-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #f59e0b;
+    flex-shrink: 0;
+    align-self: center;
+    margin-left: auto;
+}
+
+.prd-toc-item.active .toc-dot {
+    background: #fcd34d;
+}
+
+/* 编辑态 */
+.prd-sec.prd-editing .prd-sec-h {
+    border-bottom-color: #4f6ef7;
+}
+
+.prd-editor {
+    width: 100%;
+    box-sizing: border-box;
+    font-family: Consolas, 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.65;
+    color: #1e293b;
+    background: #f8fafc;
+    border: 1px solid #c7d2fe;
+    border-radius: 8px;
+    padding: 10px 12px;
+    resize: vertical;
+    outline: none;
+}
+
+.prd-editor:focus {
+    border-color: #4f6ef7;
+    box-shadow: 0 0 0 3px rgba(79, 110, 247, .12);
+    background: #fff;
+}
+
+.prd-editor-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+}
+
+.prd-btn {
+    border: 1px solid transparent;
+    border-radius: 7px;
+    padding: 5px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s;
+}
+
+.prd-btn-primary {
+    background: #4f6ef7;
+    color: #fff;
+}
+
+.prd-btn-primary:hover {
+    background: #3d5ce0;
+}
+
+.prd-btn-ghost {
+    background: #fff;
+    color: #475569;
+    border-color: #cbd5e1;
+}
+
+.prd-btn-ghost:hover {
+    background: #f1f5f9;
+}
+
+.prd-btn-danger {
+    background: #fff;
+    color: #dc2626;
+    border-color: #fecaca;
+}
+
+.prd-btn-danger:hover {
+    background: #fef2f2;
+}
+
+.prd-editor-tip {
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+/* ===== 轻提示 toast（查看器自包含，不依赖原型 toast） ===== */
+.prd-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 32px;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(15, 23, 42, .88);
+    color: #fff;
+    font-size: 13px;
+    padding: 9px 18px;
+    border-radius: 999px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s, transform .25s;
+    z-index: 2200;
+}
+
+.prd-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* ===== 搜索：标题/正文关键词检索（结果浮层悬于内容之上，不挤压目录与正文布局） ===== */
+.prd-search-wrap {
+    position: relative;
+    flex-shrink: 0;
+    padding: 8px 12px;
+    background: #f8faff;
+    border-bottom: 1px solid #eef1f7;
+}
+
+.prd-search {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 8px 0 10px;
+    background: #fff;
+    border: 1px solid #dfe5f1;
+    border-radius: 8px;
+    transition: border-color .15s, box-shadow .15s;
+}
+
+.prd-search:focus-within {
+    border-color: #4f6ef7;
+    box-shadow: 0 0 0 3px rgba(79, 110, 247, .12);
+}
+
+.prd-search-ico {
+    flex-shrink: 0;
+    font-size: 12px;
+    color: #94a3b8;
+}
+
+.prd-search-input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 12.5px;
+    color: #1e293b;
+}
+
+.prd-search-input::placeholder {
+    color: #a8b3c4;
+}
+
+/* 隐藏浏览器自带的 search 清空叉，统一用右下角自绘叉（避免双叉） */
+.prd-search-input::-webkit-search-cancel-button {
+    display: none;
+}
+
+.prd-search-clear {
+    flex-shrink: 0;
+    font-size: 11px;
+    color: #94a3b8;
+    padding: 2px 4px;
+    border-radius: 4px;
+    cursor: pointer;
+    visibility: hidden;
+}
+
+.prd-search-clear.show {
+    visibility: visible;
+}
+
+.prd-search-clear:hover {
+    color: #4f6ef7;
+    background: #eef2ff;
+}
+
+/* 结果浮层：下拉悬于内容之上；hidden 时彻底不渲染 */
+.prd-search-res {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    top: 100%;
+    z-index: 6;
+    max-height: 44vh;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #e2e8f5;
+    border-radius: 0 0 10px 10px;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, .16);
+}
+
+.prd-search-res[hidden] {
+    display: none;
+}
+
+.prd-res-sum {
+    position: sticky;
+    top: 0;
+    padding: 7px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+    background: #f8faff;
+    border-bottom: 1px solid #eef1f7;
+}
+
+.prd-res-sum.prd-res-empty {
+    color: #b45309;
+    background: #fffbeb;
+}
+
+.prd-res-item {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    padding: 8px 12px;
+    border-bottom: 1px solid #f1f4fa;
+    cursor: pointer;
+}
+
+.prd-res-item:last-child {
+    border-bottom: none;
+}
+
+.prd-res-item:hover {
+    background: #f5f7ff;
+}
+
+.prd-res-item.active {
+    background: #eef2ff;
+    box-shadow: inset 3px 0 0 #4f6ef7;
+}
+
+.prd-res-no {
+    flex-shrink: 0;
+    padding-top: 1px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #7c8ef8;
+}
+
+.prd-res-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.prd-res-main b {
+    display: block;
+    font-size: 12px;
+    color: #1e293b;
+}
+
+.prd-res-snip {
+    display: block;
+    margin-top: 2px;
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: #64748b;
+    word-break: break-word;
+}
+
+.prd-res-count {
+    flex-shrink: 0;
+    min-width: 18px;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #4f6ef7;
+    background: #eef2ff;
+    border-radius: 999px;
+    text-align: center;
+}
+
+/* 命中高亮：正文内 mark 与结果浮层内 mark 共用 */
+.prd-content mark.prd-hit,
+.prd-search-res mark.prd-hit {
+    padding: 0 1px;
+    color: inherit;
+    background: #fde68a;
+    border-radius: 3px;
+    box-shadow: inset 0 -2px 0 rgba(217, 119, 6, .35);
+}
+
+/* 当前定位到的首个命中：橙色描边，扫读时一眼可见 */
+.prd-content mark.prd-hit.prd-hit-cur {
+    background: #fdba74;
+    box-shadow: 0 0 0 2px rgba(249, 115, 22, .35);
+}
+
+/* 搜索中的目录：命中项加左杠，未命中项淡化 */
+.prd-toc-item.prd-toc-hit {
+    background: #fff7e6;
+    box-shadow: inset 3px 0 0 #f59e0b;
+}
+
+.prd-toc-item.prd-toc-hit.active {
+    background: #4f6ef7;
+    box-shadow: none;
+}
+
+.prd-toc-item.prd-toc-dim {
+    opacity: .45;
+}
+
+/* ===== 目录结构编辑：新增 / 删除 / 改名 ===== */
+
+/* 组标题：名称 + 右侧「＋」（hover 显现） */
+.prd-toc-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.prd-toc-group .prd-toc-gname {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.prd-toc-add {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    line-height: 15px;
+    text-align: center;
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 700;
+    color: #94a3b8;
+    border-radius: 4px;
+    cursor: pointer;
+    opacity: 0;
+    transition: all .15s;
+    user-select: none;
+}
+
+.prd-toc-group:hover .prd-toc-add {
+    opacity: 1;
+}
+
+.prd-toc-add:hover {
+    color: #4f6ef7;
+    background: #eef2ff;
+}
+
+/* 目录项标题：过长省略号，给右侧操作按钮腾位 */
+.prd-toc-item {
+    position: relative;
+    align-items: center;
+}
+
+.prd-toc-item .toc-t {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 新增/删除/改名操作：默认隐形，hover 或选中时显现 */
+.prd-toc-item .prd-toc-ops {
+    display: flex;
+    flex-shrink: 0;
+    gap: 1px;
+    align-self: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .15s;
+}
+
+.prd-toc-item:hover .prd-toc-ops,
+.prd-toc-item.active .prd-toc-ops {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.prd-toc-item .prd-toc-op {
+    width: 16px;
+    height: 16px;
+    line-height: 16px;
+    text-align: center;
+    font-size: 11px;
+    font-style: normal;
+    color: #94a3b8;
+    border-radius: 4px;
+    cursor: pointer;
+    user-select: none;
+    transition: all .15s;
+}
+
+.prd-toc-item .prd-toc-op:hover {
+    color: #4f6ef7;
+    background: #e2e8ff;
+}
+
+.prd-toc-item .prd-toc-op-del:hover {
+    color: #dc2626;
+    background: #fee2e2;
+}
+
+.prd-toc-item.active .prd-toc-op {
+    color: #c7d2fe;
+}
+
+.prd-toc-item.active .prd-toc-op:hover {
+    color: #1d4ed8;
+    background: #fff;
+}
+
+/* 目录项「新」标签（本地新增章节） */
+.prd-toc-item .toc-chip {
+    flex-shrink: 0;
+    font-size: 9px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 1.5;
+    padding: 0 4px;
+    border-radius: 3px;
+    color: #166534;
+    background: #dcfce7;
+}
+
+.prd-toc-item.active .toc-chip {
+    color: #14532d;
+    background: #bbf7d0;
+}
+
+/* 目录内联改名输入框 */
+.prd-toc-item .toc-rename {
+    flex: 1;
+    min-width: 0;
+    box-sizing: border-box;
+    font: inherit;
+    font-size: 12px;
+    color: #1e293b;
+    background: #fff;
+    border: 1px solid #4f6ef7;
+    border-radius: 4px;
+    padding: 1px 5px;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(79, 110, 247, .14);
+}
+
+.prd-toc-item.prd-toc-renaming {
+    background: #eef2ff;
+}
+
+.prd-toc-item.prd-toc-renaming.active .toc-no {
+    color: #7c8ef8;
+}
+
+/* 章节标题行的新增/改名标签 */
+.prd-sec-h .prd-tag {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 4px;
+    padding: 1px 6px;
+}
+
+.prd-sec-h .prd-tag-new {
+    color: #166534;
+    background: #dcfce7;
+}
+
+.prd-sec-h .prd-tag-renamed {
+    color: #1d4ed8;
+    background: #dbeafe;
+}
+
+/* 目录底部：恢复默认目录 + 操作提示 */
+.prd-toc-foot {
+    margin-top: 14px;
+    padding: 10px 4px 0;
+    border-top: 1px dashed #e2e8f0;
+}
+
+.prd-toc-btn {
+    display: inline-block;
+    font-size: 11px;
+    color: #64748b;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    padding: 3px 10px;
+    cursor: pointer;
+    transition: all .15s;
+    user-select: none;
+}
+
+.prd-toc-btn:hover {
+    color: #4f6ef7;
+    border-color: #c7d2fe;
+    background: #eef2ff;
+}
+
+.prd-toc-tip {
+    margin-top: 8px;
+    font-size: 10.5px;
+    line-height: 1.6;
+    color: #94a3b8;
+}
